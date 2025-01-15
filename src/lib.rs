@@ -90,7 +90,7 @@ impl<'a> Url<'a> {
     pub fn parse(url: &'a str) -> Result<Url<'a>, Error> {
         let mut parts = url.split("://");
         let scheme = parts.next().unwrap();
-        let host_port_path = parts.next().ok_or(Error::NoScheme)?;
+        let url_path = parts.next().ok_or(Error::NoScheme)?;
 
         let scheme = if scheme.eq_ignore_ascii_case("http") {
             Ok(UrlScheme::HTTP)
@@ -100,28 +100,40 @@ impl<'a> Url<'a> {
             Err(Error::UnsupportedScheme)
         }?;
 
-        let (host, port, path) = if let Some(port_delim) = host_port_path.find(':') {
-            // Port is defined
-            let host = &host_port_path[..port_delim];
-            let rest = &host_port_path[port_delim..];
+        let (host, port, path) = if let Some(host_path_delim) = url_path.find('/') {
+            let host_port_path = &url_path[..host_path_delim];
+            if let Some(port_delim) = host_port_path.find(':') {
+                // Port is defined
+                let host = &host_port_path[..port_delim];
+                let rest = &host_port_path[port_delim..];
 
-            let (port, path) = if let Some(path_delim) = rest.find('/') {
-                let port = rest[1..path_delim].parse::<u16>().ok();
-                let path = &rest[path_delim..];
-                let path = if path.is_empty() { "/" } else { path };
-                (port, path)
+                let (port, path) = if let Some(path_delim) = rest.find('/') {
+                    let port = rest[1..path_delim].parse::<u16>().ok();
+                    let path = &rest[path_delim..];
+                    let path = if path.is_empty() { "/" } else { path };
+                    (port, path)
+                } else {
+                    let port = rest[1..].parse::<u16>().ok();
+                    (port, "/")
+                };
+                (host, port, path)
             } else {
-                let port = rest[1..].parse::<u16>().ok();
-                (port, "/")
-            };
-            (host, port, path)
+                let (host, path) = if let Some(needle) = url_path.find('/') {
+                    let host = &url_path[..needle];
+                    let path = &url_path[needle..];
+                    (host, if path.is_empty() { "/" } else { path })
+                } else {
+                    (url_path, "/")
+                };
+                (host, None, path)
+            }
         } else {
-            let (host, path) = if let Some(needle) = host_port_path.find('/') {
-                let host = &host_port_path[..needle];
-                let path = &host_port_path[needle..];
+            let (host, path) = if let Some(needle) = url_path.find('/') {
+                let host = &url_path[..needle];
+                let path = &url_path[needle..];
                 (host, if path.is_empty() { "/" } else { path })
             } else {
-                (host_port_path, "/")
+                (url_path, "/")
             };
             (host, None, path)
         };
