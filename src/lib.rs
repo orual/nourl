@@ -128,14 +128,29 @@ impl<'a> Url<'a> {
                 (host, None, path)
             }
         } else {
-            let (host, path) = if let Some(needle) = url_path.find('/') {
+            let (host, port, path) = if let Some(port_delim) = url_path.find(':') {
+                // Port is defined
+                let host = &url_path[..port_delim];
+                let rest = &url_path[port_delim..];
+
+                let (port, path) = if let Some(path_delim) = rest.find('/') {
+                    let port = rest[1..path_delim].parse::<u16>().ok();
+                    let path = &rest[path_delim..];
+                    let path = if path.is_empty() { "/" } else { path };
+                    (port, path)
+                } else {
+                    let port = rest[1..].parse::<u16>().ok();
+                    (port, "/")
+                };
+                (host, port, path)
+            } else if let Some(needle) = url_path.find('/') {
                 let host = &url_path[..needle];
                 let path = &url_path[needle..];
-                (host, if path.is_empty() { "/" } else { path })
+                (host, None, if path.is_empty() { "/" } else { path })
             } else {
-                (url_path, "/")
+                (url_path, None, "/")
             };
-            (host, None, path)
+            (host, port, path)
         };
 
         Ok(Self {
