@@ -102,20 +102,14 @@ impl<'a> Url<'a> {
 
         let (host, port, path) = if let Some(host_path_delim) = url_path.find('/') {
             let host_port_path = &url_path[..host_path_delim];
+            let path = &url_path[host_path_delim..];
             if let Some(port_delim) = host_port_path.find(':') {
                 // Port is defined
                 let host = &host_port_path[..port_delim];
                 let rest = &host_port_path[port_delim..];
 
-                let (port, path) = if let Some(path_delim) = rest.find('/') {
-                    let port = rest[1..path_delim].parse::<u16>().ok();
-                    let path = &rest[path_delim..];
-                    let path = if path.is_empty() { "/" } else { path };
-                    (port, path)
-                } else {
-                    let port = rest[1..].parse::<u16>().ok();
-                    (port, "/")
-                };
+                let port = rest[1..].parse::<u16>().ok();
+            
                 (host, port, path)
             } else {
                 let (host, path) = if let Some(needle) = url_path.find('/') {
@@ -258,6 +252,17 @@ mod tests {
         assert_eq!(url.path(), "/foo/bar");
 
         assert_eq!("http://localhost:8088/foo/bar", std::format!("{:?}", url));
+    }
+
+    #[test]
+    fn test_parse_path_with_colon_in_query() {
+        let url = Url::parse("https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=did:plc:z72i7hdynmk6r22z27h6tvur").unwrap();
+        assert_eq!(url.scheme(), UrlScheme::HTTPS);
+        assert_eq!(url.host(), "public.api.bsky.app");
+        assert_eq!(url.port_or_default(), 443);
+        assert_eq!(url.path(), "/xrpc/app.bsky.actor.getProfile?actor=did:plc:z72i7hdynmk6r22z27h6tvur");
+
+        assert_eq!("https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=did:plc:z72i7hdynmk6r22z27h6tvur", std::format!("{:?}", url));
     }
 
     #[test]
